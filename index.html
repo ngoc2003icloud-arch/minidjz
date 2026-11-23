@@ -18,7 +18,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:12p
 .decks{display:grid;grid-template-columns:1fr;gap:10px}.deck{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:11px;min-width:0}
 .deck.a{--accent:var(--cyan)}.deck.b{--accent:var(--amber)}
 .top{display:flex;justify-content:space-between;align-items:center;gap:8px}.decktitle{font-size:17px;font-weight:950;color:var(--accent)}.filename{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:68%;margin-top:3px}
-.filebtn{display:inline-block;background:#303949;border:1px solid #475368;border-radius:9px;padding:8px 10px;font-weight:800;font-size:12px;margin:10px 0 4px}input[type=file]{display:none}
+.filebtn{display:inline-block;background:#303949;border:1px solid #475368;border-radius:9px;padding:8px 10px;font-weight:800;font-size:12px;margin:10px 0 4px}input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;z-index:2;display:block;cursor:pointer}.filebtn{position:relative;display:inline-block;cursor:pointer;touch-action:manipulation}
 .bpmline{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0}.bpm{font-size:24px;font-weight:950;font-variant-numeric:tabular-nums;color:var(--accent)}.meta{font-size:10px;color:var(--muted)}
 .wavewrap{position:relative;background:#080b11;border:1px solid #303949;border-radius:9px;overflow:hidden;margin:8px 0 4px}
 canvas{display:block;width:100%;height:94px;touch-action:pan-y}.playhead{position:absolute;top:0;bottom:0;width:2px;background:#fff;left:0;pointer-events:none;box-shadow:0 0 7px #fff}
@@ -40,7 +40,7 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
 <main><div class="decks">
 <section class="deck a" id="panelA">
  <div class="top"><div><div class="decktitle">DECK A</div><div class="filename" id="fileNameA">Chưa có bài nhạc</div></div><div class="bpm" id="bpmA">—</div></div>
- <label class="filebtn" for="fileA">＋ NẠP TRACK A</label><input id="fileA" type="file" accept="audio/*">
+ <label class="filebtn" for="fileA">＋ NẠP TRACK A</label><input id="fileA" type="file" accept=".mp3,.m4a,.aac,.wav,.aiff,.caf,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/x-wav,audio/*">
  <div class="bpmline"><span class="meta">BPM PHÂN TÍCH</span><span class="meta" id="analysisA">Chưa phân tích</span></div>
  <div class="wavewrap"><canvas id="waveA" width="900" height="188"></canvas><div class="playhead" id="headA"></div></div>
  <div class="times"><span id="timeA">00:00</span><span id="durationA">00:00</span></div>
@@ -60,7 +60,7 @@ input[type=range]{width:100%;accent-color:var(--accent);margin:2px 0}
 </section>
 <section class="deck b" id="panelB">
  <div class="top"><div><div class="decktitle">DECK B</div><div class="filename" id="fileNameB">Chưa có bài nhạc</div></div><div class="bpm" id="bpmB">—</div></div>
- <label class="filebtn" for="fileB">＋ NẠP TRACK B</label><input id="fileB" type="file" accept="audio/*">
+ <label class="filebtn" for="fileB">＋ NẠP TRACK B</label><input id="fileB" type="file" accept=".mp3,.m4a,.aac,.wav,.aiff,.caf,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/x-wav,audio/*">
  <div class="bpmline"><span class="meta">BPM PHÂN TÍCH</span><span class="meta" id="analysisB">Chưa phân tích</span></div>
  <div class="wavewrap"><canvas id="waveB" width="900" height="188"></canvas><div class="playhead" id="headB"></div></div>
  <div class="times"><span id="timeB">00:00</span><span id="durationB">00:00</span></div>
@@ -97,7 +97,8 @@ function init(){if(ac)return;const C=window.AudioContext||window.webkitAudioCont
  audio.addEventListener("loadedmetadata",()=>{$("duration"+id).textContent=fmt(audio.duration)});
  audio.addEventListener("timeupdate",()=>{$("time"+id).textContent=fmt(audio.currentTime);$("head"+id).style.left=(audio.duration?audio.currentTime/audio.duration*100:0)+"%"});
  audio.addEventListener("ended",()=>{$("play"+id).textContent="▶ PLAY"});
- audio.addEventListener("error",()=>{$("status").textContent="Không đọc được file. Thử MP3 hoặc WAV khác."});
+ audio.addEventListener("loadeddata",()=>{$("status").textContent="Đã nạp vào Deck "+id+" — bấm PLAY để phát."});
+ audio.addEventListener("error",()=>{$("status").textContent="Safari không giải mã được file này. Hãy thử MP3 tải trực tiếp về Trên iPhone của tôi."});
  });
  applyMixer();drawIdle("A");drawIdle("B");}
 $("audioOn").onclick=async()=>{init();if(ac){await ac.resume();$("status").textContent="Audio đã bật — nạp track để chơi";$("audioOn").textContent="AUDIO ON"}};
@@ -108,7 +109,12 @@ async function analyse(id,file){init();await ac.resume();const d=D[id];$("analys
  let bestLag=0,best=-1;const min=Math.floor(60/(180*hop/sr)),max=Math.floor(60/(65*hop/sr));for(let lag=min;lag<=max;lag++){let s=0,n=0;for(let i=lag;i<env.length;i+=2){s+=env[i]*env[i-lag];n++}if(n&&s/n>best){best=s/n;bestLag=lag}}
  let bpm=bestLag?60/(bestLag*hop/sr):120;while(bpm<80)bpm*=2;while(bpm>160)bpm/=2;d.bpm=Math.round(bpm*10)/10;d.beatOffset=0;$("bpm"+id).textContent=d.bpm;$("analysis"+id).textContent="Phân tích xong • ước tính";drawBuffer(id);$("status").textContent="Đã phân tích "+file.name}catch(e){$("analysis"+id).textContent="Không phân tích được";$("status").textContent="Không giải mã được file âm thanh"}}
 ids.forEach(id=>{
- $("file"+id).addEventListener("change",async e=>{const f=e.target.files[0];if(!f)return;init();const d=D[id];if(d.url)URL.revokeObjectURL(d.url);d.url=URL.createObjectURL(f);d.audio.src=d.url;d.audio.load();d.cue=0;d.loop=false;$("fileName"+id).textContent=f.name;$("play"+id).textContent="▶ PLAY";await analyse(id,f);});
+ $("file"+id).addEventListener("change",async e=>{const f=e.target.files && e.target.files[0];if(!f){$("status").textContent="iPhone chưa trả file được. Hãy tải bài nhạc về máy rồi chọn lại.";return;}
+  const d=D[id];
+  try { if(!ac) init(); if(d.url) URL.revokeObjectURL(d.url); d.url=URL.createObjectURL(f); d.audio.src=d.url; d.audio.load(); d.cue=0; d.loop=false; $("fileName"+id).textContent=f.name; $("play"+id).textContent="▶ PLAY"; $("duration"+id).textContent="Đang tải…"; $("status").textContent="Đã nhận file: "+f.name; } catch(err) { $("status").textContent="Lỗi khởi tạo deck: "+(err.message||err); return; }
+  try { await analyse(id,f); } catch(err) { $("analysis"+id).textContent="Chưa phân tích"; $("status").textContent="Đã nạp file nhưng phân tích BPM lỗi; vẫn thử bấm PLAY."; }
+  e.target.value="";
+ });
  $("play"+id).onclick=async()=>{init();await ac.resume();const a=D[id].audio;if(!a.src){$("status").textContent="Nạp nhạc vào Deck "+id+" trước";return}if(a.paused){try{await a.play();$("play"+id).textContent="Ⅱ PAUSE"}catch(e){$("status").textContent="Safari không phát được file"}}else{a.pause();$("play"+id).textContent="▶ PLAY"}};
  $("stop"+id).onclick=()=>{if(!D[id])return;const a=D[id].audio;a.pause();a.currentTime=0;$("play"+id).textContent="▶ PLAY"};
  $("cue"+id).onclick=()=>{const d=D[id],a=d.audio;if(!a.src)return;if(!a.paused){d.cue=a.currentTime;a.pause();$("play"+id).textContent="▶ PLAY"}else{a.currentTime=d.cue;a.play().then(()=>$("play"+id).textContent="Ⅱ PAUSE").catch(()=>{})}};
